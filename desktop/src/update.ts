@@ -18,6 +18,11 @@
  *
  * Only inside the native shell: a browser tab has nothing to update, so the
  * version is never known, nothing is ever found, and both surfaces stay quiet.
+ *
+ * And only where the app owns its own files. Installed from Flathub it does
+ * not — the system's software center updates it, and the shell does not even
+ * load the updater there — so the version is still read, nothing is ever
+ * checked, and the Updates screen says who does it instead.
  */
 import { useSyncExternalStore } from "react";
 import type { Update } from "@tauri-apps/plugin-updater";
@@ -28,12 +33,14 @@ export type Build = {
   version: string | null;
   /** The build that is out, if a check found a newer one. */
   newer: string | null;
+  /** Updated by the system (a Flatpak), not by this app: nothing is checked. */
+  system: boolean;
 };
 
 /** How often a window asks again. Releases are monthly; windows live for days. */
 const EVERY = 10 * 60_000;
 
-const NOTHING: Build = { version: null, newer: null };
+const NOTHING: Build = { version: null, newer: null, system: false };
 
 /* The same object until something actually changes — `useSyncExternalStore`
    compares what the snapshot returns against what it returned last time, and a
@@ -53,11 +60,16 @@ let timer: ReturnType<typeof setInterval> | null = null;
 let held: Update | null = null;
 /** An install in flight. Nothing is re-checked or closed under one. */
 let taking = false;
+/**
+ * Whether this build replaces itself. Asked of the shell once and kept: it is
+ * a fact about how the app was installed, which does not change while it runs.
+ */
+let selfUpdating: boolean | null = null;
 /** The check in flight, so two callers wait on one request. */
 let looking: Promise<void> | null = null;
 
 function settle(next: Build) {
-  if (next.version === build.version && next.newer === build.newer) return;
+  if (next.version === build.version && next.newer === build.newer && next.system === build.system) return;
   build = next;
   for (const tell of watching) tell();
 }
@@ -83,6 +95,19 @@ async function ask(): Promise<void> {
       /* The row leaves the version out. */
     }
   }
+
+  if (selfUpdating === null) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      selfUpdating = await invoke<boolean>("updates_itself");
+    } catch {
+      // A shell that cannot say is one from before the question existed, and
+      // every one of those updated itself.
+      selfUpdating = true;
+    }
+    if (!selfUpdating) settle({ ...build, system: true });
+  }
+  if (!selfUpdating) return;
 
   try {
     const { check } = await import("@tauri-apps/plugin-updater");

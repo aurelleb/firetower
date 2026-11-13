@@ -4,11 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
    the one test that asks what a browser tab does, so it is a live object
    rather than a value copied into the factory. */
 const shell = vi.hoisted(() => ({ bridge: { native: true, notify: vi.fn() } }));
-const plugin = vi.hoisted(() => ({ check: vi.fn(), getVersion: vi.fn() }));
+const plugin = vi.hoisted(() => ({ check: vi.fn(), getVersion: vi.fn(), invoke: vi.fn() }));
 
 vi.mock("~/bridge", () => shell);
 vi.mock("@tauri-apps/plugin-updater", () => ({ check: () => plugin.check() }));
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: () => plugin.getVersion() }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: (cmd: string) => plugin.invoke(cmd) }));
 vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: vi.fn() }));
 
 /** One `check()` answer: the metadata, and the resource behind it. */
@@ -29,7 +30,29 @@ beforeEach(() => {
   shell.bridge.native = true;
   plugin.check.mockReset();
   plugin.getVersion.mockReset().mockResolvedValue("0.19.0");
+  plugin.invoke.mockReset().mockResolvedValue(true);
   shell.bridge.notify.mockReset();
+});
+
+describe("a build the system updates", () => {
+  it("never checks, and says the system does it", async () => {
+    plugin.invoke.mockResolvedValue(false);
+    plugin.check.mockResolvedValue(release("0.20.0"));
+    const { look, currentBuild } = await fresh();
+    await look();
+    await look();
+    expect(plugin.invoke).toHaveBeenCalledTimes(1);
+    expect(plugin.check).not.toHaveBeenCalled();
+    expect(currentBuild()).toEqual({ version: "0.19.0", newer: null, system: true });
+  });
+
+  it("checks as before when the shell cannot say", async () => {
+    plugin.invoke.mockRejectedValue(new Error("unknown command"));
+    plugin.check.mockResolvedValue(release("0.20.0"));
+    const { look, currentBuild } = await fresh();
+    await look();
+    expect(currentBuild()).toEqual({ version: "0.19.0", newer: "0.20.0", system: false });
+  });
 });
 
 describe("watching for a newer build", () => {
@@ -37,7 +60,7 @@ describe("watching for a newer build", () => {
     plugin.check.mockResolvedValue(release("0.20.0"));
     const { look, currentBuild } = await fresh();
     await look();
-    expect(currentBuild()).toEqual({ version: "0.19.0", newer: "0.20.0" });
+    expect(currentBuild()).toEqual({ version: "0.19.0", newer: "0.20.0", system: false });
   });
 
   it("answers the same object when a check changed nothing", async () => {
@@ -76,14 +99,14 @@ describe("watching for a newer build", () => {
     const { look, currentBuild } = await fresh();
     await look();
     await look();
-    expect(currentBuild()).toEqual({ version: "0.19.0", newer: null });
+    expect(currentBuild()).toEqual({ version: "0.19.0", newer: null, system: false });
   });
 
   it("still says which build this is when the check itself fails", async () => {
     plugin.check.mockRejectedValue(new Error("no signature"));
     const { look, currentBuild } = await fresh();
     await look();
-    expect(currentBuild()).toEqual({ version: "0.19.0", newer: null });
+    expect(currentBuild()).toEqual({ version: "0.19.0", newer: null, system: false });
   });
 
   it("asks nothing at all in a browser tab", async () => {
@@ -92,7 +115,7 @@ describe("watching for a newer build", () => {
     const { look, currentBuild } = await fresh();
     await look();
     expect(plugin.check).not.toHaveBeenCalled();
-    expect(currentBuild()).toEqual({ version: null, newer: null });
+    expect(currentBuild()).toEqual({ version: null, newer: null, system: false });
   });
 
   it("asks once when two callers ask at the same moment", async () => {

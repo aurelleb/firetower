@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.usefiretower.Firetower</id>
+  <name>Firetower</name>
+  <summary>Run teams of AI agents on your own infrastructure</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-only</project_license>
+  <developer id="com.usefiretower">
+    <name>Westlabs LLC</name>
+  </developer>
+
+  <description>
+    <p>
+      Firetower is an open-source workspace for running teams of AI agents on
+      infrastructure you control. Choose your agents, machines, instructions
+      and skills, follow their conversations, and review the results in one
+      place.
+    </p>
+    <p>
+      This is the desktop client. It connects to a Firetower control plane
+      you host, and keeps a token per server in the system keychain.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">com.usefiretower.Firetower.desktop</launchable>
+  <url type="homepage">https://usefiretower.com</url>
+  <url type="vcs-browser">https://github.com/firetower-cloud/firetower</url>
+  <url type="bugtracker">https://github.com/firetower-cloud/firetower/issues</url>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#f4f1ea</color>
+    <color type="primary" scheme_preference="dark">#1c1a17</color>
+  </branding>
+
+  <content_rating type="oars-1.1" />
+
+  <requires>
+    <display_length compare="ge">880</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <!-- Flathub wants screenshots before it will list the app. -->
+
+  <releases>
+    <release version="0.29.1" date="2026-11-11" />
+  </releases>
+</component>

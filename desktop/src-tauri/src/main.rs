@@ -49,6 +49,23 @@ fn set_badge<R: Runtime>(window: WebviewWindow<R>, count: Option<i64>) {
     }
 }
 
+/// Whether this build replaces itself when a release is out.
+///
+/// Not inside a Flatpak. The app's files there are the system's: Flathub
+/// builds them, the software center installs them, and `/app` is read-only to
+/// the app anyway — so the updater is not loaded, and the renderer asks this
+/// rather than offering an update it could only fail to install.
+/// `/.flatpak-info` is the sandbox's own marker, present in every Flatpak and
+/// nowhere else.
+fn in_flatpak() -> bool {
+    std::path::Path::new("/.flatpak-info").exists()
+}
+
+#[tauri::command]
+fn updates_itself() -> bool {
+    !in_flatpak()
+}
+
 #[tauri::command]
 fn notify(app: tauri::AppHandle, title: String, body: String) {
     use tauri_plugin_notification::NotificationExt;
@@ -345,14 +362,18 @@ async fn load_artifact(url: String) -> Result<String, String> {
 }
 
 fn main() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+    // A new build is offered from the GitHub release; the renderer asks. Not in
+    // a Flatpak — see `updates_itself`.
+    if !in_flatpak() {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+    builder
         .plugin(tauri_plugin_notification::init())
         // Links leave the app: a pull request opens in the browser, not in here.
         .plugin(tauri_plugin_opener::init())
         // Apps remember where they were; pages do not.
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        // A new build is offered from the GitHub release; the renderer asks.
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         // A file or a directory leaves a workspace through the save sheet.
         .plugin(tauri_plugin_dialog::init())
@@ -389,6 +410,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             set_title,
             set_badge,
+            updates_itself,
             notify,
             minimize,
             zoom,

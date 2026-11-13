@@ -281,11 +281,11 @@ function ThisApp() {
         <span className="g"><Icon of={Monitor} size={20} /></span>
         <span className="tx">
           <b>This app</b>
-          <s>Updates itself from GitHub — it does not ask the deployment</s>
+          <s>{build.system ? "Updated by your system's software center, from Flathub" : "Updates itself from GitHub — it does not ask the deployment"}</s>
         </span>
         <span className="ver">{build.version ?? "—"}</span>
         <span className="acts">
-          {build.newer ? (
+          {build.system ? null : build.newer ? (
             <button disabled={taking} onClick={go} className="btn primary">
               <Icon of={taking ? Loader2 : Download} size={14} className={taking ? "animate-spin" : undefined} />
               {taking ? "Downloading…" : `Update to ${build.newer} and relaunch`}

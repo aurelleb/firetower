@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Firetower
+Comment=Run teams of AI agents on your own infrastructure
+Exec=com.usefiretower.Firetower
+Icon=com.usefiretower.Firetower
+Terminal=false
+Categories=Development;
